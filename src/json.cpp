@@ -106,7 +106,7 @@ bool isDigit(char ch)
     return ch == '0' || ch == '1' || ch == '2'
         || ch == '3' || ch == '4' || ch == '5'
         || ch == '6' || ch == '7' || ch == '8'
-        || ch == '0';
+        || ch == '9';
 }
 
 JSONError readUnicodeEscapedChar(parseStringContext *ctx, size_t *outputIndex)
