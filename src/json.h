@@ -1,24 +1,9 @@
 #pragma once
 
-#if defined(_MSC_VER)
-
-typedef __int8 int8_t;
-typedef unsigned __int8 uint8_t;
-typedef __int16 int16_t;
-typedef unsigned __int16 uint16_t;
-typedef __int32 int32_t;
-typedef unsigned __int32 uint32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
-
-#elif defined(GNUC) || defined(__clang__)
-
 #ifdef __cplusplus
 #include <cstdint>
 #else
 #include <stdint.h>
-#endif
-
 #endif
 
 #if defined(BUILDING_JSON)
@@ -49,12 +34,12 @@ JSON_API const char* JSONNodeTypeToString(JSONNodeType type);
 #define MAX_KEYS 16
 #define MAX_VALUES 16
 
-#define MAX_STRING_LENGTH 2048
 #define MAX_CHILDREN_PER_NODE 2048
 
 struct JSONString
 {
-    char data[MAX_STRING_LENGTH];
+    char *data;
+    size_t capacity;
     size_t length;
 };
 

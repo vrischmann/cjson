@@ -40,14 +40,16 @@ JSON_API const char* JSONNodeTypeToString(JSONNodeType type)
 void JSONStringSet(JSONString *string, char *buffer, size_t length)
 {
     string->length = length;
-    memcpy_s(string->data, MAX_STRING_LENGTH, buffer, length);
+    memcpy_s(string->data, string->capacity, buffer, length);
 }
 
 JSONString* JSONNewString(char *buffer, size_t length)
 {
     JSONString *result = (JSONString*) malloc(sizeof(JSONString));
     result->length = length;
-    memcpy_s(result->data, MAX_STRING_LENGTH, buffer, length);
+    result->capacity = sizeof(char) * (1 << 16);
+    result->data = (char * ) malloc(result->capacity);
+    memcpy_s(result->data, result->capacity, buffer, length);
 
     return result;
 }
@@ -85,7 +87,8 @@ struct parseStringContext
 {
     parseContext *globalCtx;
 
-    char outputBuffer[MAX_STRING_LENGTH];
+    char *outputBuffer;
+    size_t outputCapacity;
     size_t outputLength;
 };
 
@@ -133,13 +136,13 @@ JSONError readUnicodeEscapedChar(parseStringContext *ctx, size_t *outputIndex)
     char ch = (char) ((s & 0xFF00) >> 8);
     char ch2 = (char) (s & 0xFF);
 
-    error = putToBuffer((char*) &ctx->outputBuffer, outputIndex, MAX_STRING_LENGTH, ch);
+    error = putToBuffer(ctx->outputBuffer, outputIndex, ctx->outputCapacity, ch);
     if (error != ERR_NOERROR)
     {
         return error;
     }
 
-    error = putToBuffer((char*) &ctx->outputBuffer, outputIndex, MAX_STRING_LENGTH, ch2);
+    error = putToBuffer(ctx->outputBuffer, outputIndex, ctx->outputCapacity, ch2);
     if (error != ERR_NOERROR)
     {
         return error;
@@ -192,7 +195,7 @@ JSONError parseString(parseStringContext *ctx)
 
             sawBackslash = false;
 
-            error = putToBuffer((char*) &ctx->outputBuffer, &outputIndex, MAX_STRING_LENGTH, ch);
+            error = putToBuffer(ctx->outputBuffer, &outputIndex, ctx->outputCapacity, ch);
             if (error != ERR_NOERROR)
             {
                 return error;
@@ -213,7 +216,7 @@ JSONError parseString(parseStringContext *ctx)
                 case 't': ch = '\t'; break;
             }
 
-            error = putToBuffer((char*) &ctx->outputBuffer, &outputIndex, MAX_STRING_LENGTH, ch);
+            error = putToBuffer(ctx->outputBuffer, &outputIndex, ctx->outputCapacity, ch);
             if (error != ERR_NOERROR)
             {
                 return error;
@@ -237,7 +240,7 @@ JSONError parseString(parseStringContext *ctx)
             continue;
         }
 
-        error = putToBuffer((char*) &ctx->outputBuffer, &outputIndex, MAX_STRING_LENGTH, ch);
+        error = putToBuffer(ctx->outputBuffer, &outputIndex, ctx->outputCapacity, ch);
         if (error != ERR_NOERROR)
         {
             return error;
@@ -246,7 +249,7 @@ JSONError parseString(parseStringContext *ctx)
 
 done:
 
-    error = putToBuffer((char*) &ctx->outputBuffer, &outputIndex, MAX_STRING_LENGTH, '\0');
+    error = putToBuffer(ctx->outputBuffer, &outputIndex, ctx->outputCapacity, '\0');
     if (error != ERR_NOERROR)
     {
         return error;
@@ -300,7 +303,7 @@ JSONError parseNumber(parseContext *ctx, JSONNodeType *type, int8_t* bytes)
     // JSONError error;
     size_t *idx = ctx->index;
 
-    char buffer[MAX_STRING_LENGTH];
+    char buffer[1 << 16];
     bool isDouble = false;
     int i = 0;
     for (; *idx < ctx->inputLength; i++, (*idx)++)
@@ -361,6 +364,9 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
     {
         parseStringContext valCtx = {};
         valCtx.globalCtx = ctx;
+        valCtx.outputCapacity = sizeof(char) * (1 << 16); // 64k buffer
+        // TODO(vincent): have a dynamic capacity buffer
+        valCtx.outputBuffer = (char*) malloc(valCtx.outputCapacity);
 
         error = parseString(&valCtx);
         if (error != ERR_NOERROR)
@@ -370,6 +376,8 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
 
         value->type = STRING_NODE;
         value->stringValue = JSONNewString(valCtx.outputBuffer, valCtx.outputLength);
+
+        free(valCtx.outputBuffer);
 
         return error;
     }
@@ -442,6 +450,10 @@ JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
 
     {
         parseStringContext keyCtx = {};
+        keyCtx.outputCapacity = sizeof(char) * (1 << 16); // 64k buffer
+        // TODO(vincent): have a dynamic capacity buffer
+        keyCtx.outputBuffer = (char*) malloc(keyCtx.outputCapacity);
+		memset(keyCtx.outputBuffer, 0, keyCtx.outputCapacity);
         keyCtx.globalCtx = ctx;
         error = parseString(&keyCtx);
         if (error != ERR_NOERROR)
@@ -450,6 +462,8 @@ JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
         }
 
         JSONStringSet(key, keyCtx.outputBuffer, keyCtx.outputLength);
+
+        free(keyCtx.outputBuffer);
     }
 
     // Prerequisites
@@ -495,7 +509,8 @@ JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
 
     node->type = OBJECT_NODE;
     node->values = (JSONNode*) malloc(sizeof(JSONNode) * MAX_VALUES); // TODO make this dynamic
-    memset(node->values, 0, sizeof(JSONNode) * MAX_VALUES);
+	memset(node->keys, 0, sizeof(JSONString) * MAX_KEYS);
+	memset(node->values, 0, sizeof(JSONNode) * MAX_VALUES);
     size_t *idx = ctx->index;
 
     size_t keyValuePairIdx = 0;
@@ -508,7 +523,11 @@ JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
         }
 
         {
-            error = parseKeyValuePair(&node->keys[keyValuePairIdx], &node->values[keyValuePairIdx], ctx);
+            JSONString *key = &node->keys[keyValuePairIdx];
+            key->capacity = sizeof(char) * (1 << 16);
+            key->data = (char *) malloc(key->capacity);
+
+            error = parseKeyValuePair(key, &node->values[keyValuePairIdx], ctx);
             if (error != ERR_NOERROR)
             {
                 goto done;
@@ -612,7 +631,6 @@ JSONError parseArrayNode(JSONNode *node, parseContext *ctx)
 
     return error;
 }
-
 
 JSON_API JSONNodeType JSONGetNodeType(JSONNode *node)
 {
