@@ -2,7 +2,7 @@
 
 set CommonCompilerFlags=-nologo -GR- -EHa- -Oi -Od -MT -FC -W4 -WX -wd4100 -Zi
 
-set LibSources=..\json\src\json.cpp
+set LibSources=..\json\src\json.cpp ..\json\src\buffer.cpp
 set ExampleSources=..\json\src\example.cpp
 
 set BuildDir=..\..\json-build

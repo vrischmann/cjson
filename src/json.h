@@ -1,10 +1,7 @@
 #pragma once
 
-#ifdef __cplusplus
-#include <cstdint>
-#else
-#include <stdint.h>
-#endif
+#include "types.h"
+#include "errors.h"
 
 #if defined(BUILDING_JSON)
 #define JSON_API __declspec(dllexport)
@@ -36,32 +33,9 @@ JSON_API const char* JSONNodeTypeToString(JSONNodeType type);
 
 #define MAX_CHILDREN_PER_NODE 2048
 
-struct JSONString
-{
-    char *data;
-    size_t capacity;
-    size_t length;
-};
+typedef struct JSONString JSONString;
 
-enum JSONError
-{
-    ERR_NOERROR,
-    ERR_EOF,
-    ERR_INVALID_STRING,
-    ERR_INVALID_TREE_SYNTAX,
-    ERR_INVALID_OBJECT_SYNTAX,
-    ERR_INVALID_BOOLEAN_SYNTAX,
-    ERR_INVALID_FLOAT_SYNTAX,
-    ERR_INVALID_UNICODE_LITERAL_SYNTAX,
-    ERR_INVALID_ARRAY_SYNTAX,
-    ERR_INVALID_NULL_SYNTAX,
-    ERR_OUTPUT_BUFFER_TOO_SMALL,
-
-    ERR_ITERATOR_INVALID_NODE,
-    ERR_ITERATOR_INVALID_KEY_PTR,
-    ERR_ITERATOR_INVALID_VALUE_PTR,
-    ERR_ITERATOR_NO_MORE_ELEMENTS
-};
+JSON_API char* JSONStringGetData(JSONString *string);
 
 typedef struct JSONNode JSONNode;
 

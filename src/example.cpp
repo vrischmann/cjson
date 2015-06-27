@@ -27,8 +27,8 @@ void printValue(JSONNode *node, const int indent)
     {
         case ARRAY_NODE:
         {
-            OutputDebugStringA(JSONNodeTypeToString(type));
-            OutputDebugStringA("\n");
+            sprintf_s(ptr + indent, 2048, "%s\n", JSONNodeTypeToString(type));
+            OutputDebugStringA(buffer);
 
             JSONIterator *newIter = JSONCreateIterator(node);
             JSONNode *value;
@@ -43,17 +43,17 @@ void printValue(JSONNode *node, const int indent)
         }
         case OBJECT_NODE:
         {
+            sprintf_s(ptr + indent, 2048, "%s\n", JSONNodeTypeToString(type));
+            OutputDebugStringA(buffer);
+
             JSONIterator *iter = JSONCreateIterator(node);
             JSONString *key;
             JSONNode *value;
 
-            OutputDebugStringA(JSONNodeTypeToString(type));
-            OutputDebugStringA("\n");
-
             while ((error = JSONIteratorGetNext(iter, &key, &value)) != ERR_ITERATOR_NO_MORE_ELEMENTS)
             {
                 // Print the key
-                sprintf_s(ptr + indent, 2048, "key: %-5s\n", key->data);
+                sprintf_s(ptr + indent, 2048, "key: %-5s\n", JSONStringGetData(key));
                 OutputDebugStringA(ptr);
 
                 printValue(value, indent + 1);
@@ -65,7 +65,7 @@ void printValue(JSONNode *node, const int indent)
         {
             JSONString *string = JSONNodeGetString(node);
 
-            sprintf_s(ptr + indent, 2048, "%s => %s\n", JSONNodeTypeToString(type), string->data);
+            sprintf_s(ptr + indent, 2048, "%s => %s\n", JSONNodeTypeToString(type), JSONStringGetData(string));
             OutputDebugStringA(buffer);
 
             break;
