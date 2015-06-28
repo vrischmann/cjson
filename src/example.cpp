@@ -162,5 +162,7 @@ int main(void)
 
     printValue(tree, 0);
 
+    JSONFreeNode(tree);
+
     return 0;
 }
