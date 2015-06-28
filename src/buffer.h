@@ -1,7 +1,6 @@
 #pragma once
 
-#include "types.h"
-#include "errors.h"
+#include "json.h"
 
 struct Buffer
 {

@@ -26,6 +26,11 @@ JSONString* newJSONString()
     return ptr;
 }
 
+void freeJSONString(JSONString *string)
+{
+    freeBuffer(string->buffer);
+}
+
 JSONError setJSONStringData(JSONString *string, char *buffer, size_t length)
 {
     return putArrayToBuffer(string->buffer, buffer, length);
@@ -55,6 +60,15 @@ struct JSONStringArray
     size_t capacity;
     size_t index;
 };
+
+void freeJSONStringArray(JSONStringArray *array)
+{
+    for (size_t i = 0; i < array->index; i++)
+    {
+        freeJSONString(&array->underlying[i]);
+    }
+    free(array->underlying);
+}
 
 JSONStringArray* newJSONStringArray(size_t capacity)
 {
@@ -717,15 +731,31 @@ JSON_API double JSONNodeGetDouble(JSONNode *node)
     return node->doubleValue;
 }
 
-JSON_API JSONNode* JSONCreateTree(void)
+JSON_API JSONNode* JSONCreateNode(void)
 {
-    JSONNode *tree = (JSONNode *) malloc(sizeof(JSONNode));
-    memset(tree, 0, sizeof(JSONNode));
+    JSONNode *node = (JSONNode *) malloc(sizeof(JSONNode));
+    memset(node, 0, sizeof(JSONNode));
 
-    return tree;
+    return node;
 }
 
-JSON_API JSONError JSONParseTree(JSONNode *tree, const char *input, size_t inputLength)
+JSON_API void JSONFreeNode(JSONNode *node)
+{
+    freeJSONStringArray(node->keys);
+
+    for (size_t i = 0; i < node->length; i++)
+    {
+        JSONFreeNode(&node->values[i]);
+    }
+
+    // We only have to clean a string node, other node types are self-cleaning
+    if (node->type == STRING_NODE)
+    {
+        freeJSONString(node->stringValue);
+    }
+}
+
+JSON_API JSONError JSONParse(JSONNode *tree, const char *input, size_t inputLength)
 {
     JSONError error;
     size_t index = 0;

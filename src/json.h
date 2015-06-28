@@ -1,7 +1,6 @@
 #pragma once
 
-#include "types.h"
-#include "errors.h"
+#include <stdint.h>
 
 #if defined(BUILDING_JSON)
 #define JSON_API __declspec(dllexport)
@@ -13,6 +12,26 @@
 extern "C"
 {
 #endif
+
+enum JSONError
+{
+    ERR_NOERROR,
+    ERR_EOF,
+    ERR_INVALID_STRING,
+    ERR_INVALID_TREE_SYNTAX,
+    ERR_INVALID_OBJECT_SYNTAX,
+    ERR_INVALID_BOOLEAN_SYNTAX,
+    ERR_INVALID_FLOAT_SYNTAX,
+    ERR_INVALID_UNICODE_LITERAL_SYNTAX,
+    ERR_INVALID_ARRAY_SYNTAX,
+    ERR_INVALID_NULL_SYNTAX,
+    ERR_OUTPUT_BUFFER_TOO_SMALL,
+
+    ERR_ITERATOR_INVALID_NODE,
+    ERR_ITERATOR_INVALID_KEY_PTR,
+    ERR_ITERATOR_INVALID_VALUE_PTR,
+    ERR_ITERATOR_NO_MORE_ELEMENTS
+};
 
 enum JSONNodeType
 {
@@ -45,9 +64,9 @@ JSON_API bool JSONNodeGetBool(JSONNode *node);
 JSON_API int64_t JSONNodeGetInteger(JSONNode *node);
 JSON_API double JSONNodeGetDouble(JSONNode *node);
 
-JSON_API JSONNode* JSONCreateTree();
-JSON_API JSONError JSONParseTree(JSONNode *tree, const char *input, size_t inputLength);
-JSON_API void JSONFreeTree(JSONNode *tree); // TODO
+JSON_API JSONNode* JSONCreateNode();
+JSON_API JSONError JSONParse(JSONNode *tree, const char *input, size_t inputLength);
+JSON_API void JSONFreeNode(JSONNode *tree); // TODO
 
 typedef struct JSONIterator JSONIterator;
 

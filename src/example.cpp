@@ -151,9 +151,9 @@ int main(void)
     }
 
     JSONError error;
-    JSONNode *tree = JSONCreateTree();
+    JSONNode *tree = JSONCreateNode();
 
-    error = JSONParseTree(tree, (char*) input, strlen(input));
+    error = JSONParse(tree, (char*) input, strlen(input));
     if (error != ERR_NOERROR)
     {
         OutputDebugStringA("Error while parsing tree !!!\n");
