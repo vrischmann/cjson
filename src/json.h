@@ -65,12 +65,13 @@ JSON_API int64_t JSONNodeGetInteger(JSONNode *node);
 JSON_API double JSONNodeGetDouble(JSONNode *node);
 
 JSON_API JSONNode* JSONCreateNode();
+JSON_API void JSONFreeNode(JSONNode *tree);
 JSON_API JSONError JSONParse(JSONNode *tree, const char *input, size_t inputLength);
-JSON_API void JSONFreeNode(JSONNode *tree); // TODO
 
 typedef struct JSONIterator JSONIterator;
 
 JSON_API JSONIterator* JSONCreateIterator(JSONNode *node);
+JSON_API void JSONFreeIterator(JSONIterator *iter);
 JSON_API JSONError JSONIteratorGetNext(JSONIterator *iter, JSONString **keyPtr, JSONNode **nodePtr);
 
 #ifdef __cplusplus

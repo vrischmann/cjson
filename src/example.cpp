@@ -38,6 +38,8 @@ void printValue(JSONNode *node, const int indent)
                 printValue(value, indent + 1);
             }
 
+            JSONFreeIterator(newIter);
+
             break;
 
         }
@@ -58,6 +60,8 @@ void printValue(JSONNode *node, const int indent)
 
                 printValue(value, indent + 1);
             }
+
+            JSONFreeIterator(iter);
 
             break;
         }

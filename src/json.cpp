@@ -26,7 +26,9 @@ JSONString* newJSONString()
     return ptr;
 }
 
-void freeJSONString(JSONString *string)
+// NOTE(vincent): this does not *free* the string !!
+// It only cleans/frees all fields of the string
+void cleanJSONString(JSONString *string)
 {
     freeBuffer(string->buffer);
 }
@@ -65,7 +67,7 @@ void freeJSONStringArray(JSONStringArray *array)
 {
     for (size_t i = 0; i < array->index; i++)
     {
-        freeJSONString(&array->underlying[i]);
+        cleanJSONString(&array->underlying[i]);
     }
     free(array->underlying);
 }
@@ -759,7 +761,7 @@ JSON_API void JSONFreeNode(JSONNode *node)
     // We only have to clean a string node, other node types are self-cleaning
     if (node->type == STRING_NODE)
     {
-        freeJSONString(node->stringValue);
+        cleanJSONString(node->stringValue);
     }
 }
 
@@ -813,6 +815,11 @@ JSON_API JSONIterator* JSONCreateIterator(JSONNode *node)
     iter->index = 0;
 
     return iter;
+}
+
+JSON_API void JSONFreeIterator(JSONIterator *iter)
+{
+    free(iter);
 }
 
 JSON_API JSONError JSONIteratorGetNext(JSONIterator *iter, JSONString **key, JSONNode **value)
