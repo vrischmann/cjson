@@ -741,7 +741,15 @@ JSON_API JSONNode* JSONCreateNode(void)
 
 JSON_API void JSONFreeNode(JSONNode *node)
 {
-    freeJSONStringArray(node->keys);
+    if (!node)
+    {
+        return;
+    }
+
+    if (node->keys)
+    {
+        freeJSONStringArray(node->keys);
+    }
 
     for (size_t i = 0; i < node->length; i++)
     {
