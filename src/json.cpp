@@ -138,8 +138,8 @@ struct parseContext
 };
 
 // forward declare because of parseKeyValuePair
-JSONError parseObjectNode(JSONNode *node, parseContext *ctx);
-JSONError parseArrayNode(JSONNode *node, parseContext *ctx);
+JSONError parseObjectNode(JSONNode *node, parseContext *ctx, bool *parsedSomething);
+JSONError parseArrayNode(JSONNode *node, parseContext *ctx, bool *parsedSomething);
 
 JSONError consumeWhitespaces(parseContext *ctx)
 {
@@ -197,14 +197,12 @@ JSONError readUnicodeEscapedChar(parseStringContext *ctx)
     char ch = (char) ((s & 0xFF00) >> 8);
     char ch2 = (char) (s & 0xFF);
 
-    error = putCharToBuffer(ctx->buffer, ch);
-    if (error != ERR_NOERROR)
+    if ((error = putCharToBuffer(ctx->buffer, ch)) != ERR_NOERROR)
     {
         return error;
     }
 
-    error = putCharToBuffer(ctx->buffer, ch2);
-    if (error != ERR_NOERROR)
+    if ((error = putCharToBuffer(ctx->buffer, ch2)) != ERR_NOERROR)
     {
         return error;
     }
@@ -255,8 +253,7 @@ JSONError parseString(parseStringContext *ctx)
 
             sawBackslash = false;
 
-            error = putCharToBuffer(ctx->buffer, ch);
-            if (error != ERR_NOERROR)
+            if ((error = putCharToBuffer(ctx->buffer, ch)) != ERR_NOERROR)
             {
                 return error;
             }
@@ -276,8 +273,7 @@ JSONError parseString(parseStringContext *ctx)
                 case 't': ch = '\t'; break;
             }
 
-            error = putCharToBuffer(ctx->buffer, ch);
-            if (error != ERR_NOERROR)
+            if ((error = putCharToBuffer(ctx->buffer, ch)) != ERR_NOERROR)
             {
                 return error;
             }
@@ -290,8 +286,7 @@ JSONError parseString(parseStringContext *ctx)
         {
             (*idx)++; // eat the token
 
-            error = readUnicodeEscapedChar(ctx);
-            if (error != ERR_NOERROR)
+            if ((error = readUnicodeEscapedChar(ctx)) != ERR_NOERROR)
             {
                 return error;
             }
@@ -300,8 +295,7 @@ JSONError parseString(parseStringContext *ctx)
             continue;
         }
 
-        error = putCharToBuffer(ctx->buffer, ch);
-        if (error != ERR_NOERROR)
+        if ((error = putCharToBuffer(ctx->buffer, ch)) != ERR_NOERROR)
         {
             return error;
         }
@@ -309,8 +303,7 @@ JSONError parseString(parseStringContext *ctx)
 
 done:
 
-    error = putCharToBuffer(ctx->buffer, '\0');
-    if (error != ERR_NOERROR)
+    if ((error = putCharToBuffer(ctx->buffer, '\0')) != ERR_NOERROR)
     {
         return error;
     }
@@ -358,7 +351,6 @@ JSONError parseBoolean(parseContext *globalCtx, bool *ret)
 
 JSONError parseNumber(parseContext *ctx, JSONNodeType *type, int8_t* bytes)
 {
-    // JSONError error;
     size_t *idx = ctx->index;
 
     char buffer[1 << 16];
@@ -397,7 +389,7 @@ JSONError parseNumber(parseContext *ctx, JSONNodeType *type, int8_t* bytes)
     return ERR_NOERROR;
 }
 
-JSONError parseValue(JSONNode *value, parseContext *ctx)
+JSONError parseValue(JSONNode *value, parseContext *ctx, bool *parsedSomething)
 {
     JSONError error = ERR_NOERROR;
     size_t *idx = ctx->index;
@@ -408,14 +400,14 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
     {
         (*idx)++; // eat the token
 
-        return parseObjectNode(value, ctx);
+        return parseObjectNode(value, ctx, parsedSomething);
     }
 
     if (ch == '[')
     {
         (*idx)++; // eat the token
 
-        return parseArrayNode(value, ctx);
+        return parseArrayNode(value, ctx, parsedSomething);
     }
 
     if (ch == '"')
@@ -424,8 +416,7 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
         valCtx.globalCtx = ctx;
         valCtx.buffer = newBuffer();
 
-        error = parseString(&valCtx);
-        if (error != ERR_NOERROR)
+        if ((error = parseString(&valCtx)) != ERR_NOERROR)
         {
             return error;
         }
@@ -436,20 +427,29 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
 
         freeBuffer(valCtx.buffer);
 
+        if (parsedSomething)
+        {
+            *parsedSomething = true;
+        }
+
         return error;
     }
 
     if (ch == 't' || ch == 'f')
     {
         bool ret;
-        error = parseBoolean(ctx, &ret);
-        if (error != ERR_NOERROR)
+        if ((error = parseBoolean(ctx, &ret)) != ERR_NOERROR)
         {
             return error;
         }
 
         value->type = BOOLEAN_NODE;
         value->booleanValue = ret;
+
+        if (parsedSomething)
+        {
+            *parsedSomething = true;
+        }
 
         return error;
     }
@@ -474,6 +474,11 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
 
         value->type = NULL_NODE;
 
+        if (parsedSomething)
+        {
+            *parsedSomething = true;
+        }
+
         return error;
     }
 
@@ -481,8 +486,7 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
     {
         int8_t bytes[8];
 
-        error = parseNumber(ctx, &value->type, (int8_t*) bytes);
-        if (error != ERR_NOERROR)
+        if ((error = parseNumber(ctx, &value->type, (int8_t*) bytes)) != ERR_NOERROR)
         {
             return error;
         }
@@ -495,12 +499,17 @@ JSONError parseValue(JSONNode *value, parseContext *ctx)
         {
             value->intValue = *((int64_t*) bytes);
         }
+
+        if (parsedSomething)
+        {
+            *parsedSomething = true;
+        }
     }
 
     return error;
 }
 
-JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
+JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx, bool *parsedSomething)
 {
     JSONError error;
     size_t *idx = ctx->index;
@@ -509,8 +518,7 @@ JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
         parseStringContext keyCtx = {};
         keyCtx.buffer = newBuffer();
         keyCtx.globalCtx = ctx;
-        error = parseString(&keyCtx);
-        if (error != ERR_NOERROR)
+        if ((error = parseString(&keyCtx)) != ERR_NOERROR)
         {
             return error;
         }
@@ -527,8 +535,7 @@ JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
             return ERR_EOF;
         }
 
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             return error;
         }
@@ -539,25 +546,28 @@ JSONError parseKeyValuePair(JSONString *key, JSONNode *value, parseContext *ctx)
             return ERR_INVALID_OBJECT_SYNTAX;
         }
 
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             return error;
         }
     }
 
     {
-        error = parseValue(value, ctx);
-        if (error != ERR_NOERROR)
+        if ((error = parseValue(value, ctx, parsedSomething)) != ERR_NOERROR)
         {
             return error;
         }
     }
 
+    if (parsedSomething)
+    {
+        *parsedSomething = true;
+    }
+
     return ERR_NOERROR;
 }
 
-JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
+JSONError parseObjectNode(JSONNode *node, parseContext *ctx, bool *parsedSomething)
 {
     JSONError error = ERR_NOERROR;
 
@@ -570,24 +580,34 @@ JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
     size_t keyValuePairIdx = 0;
     for (; *idx < ctx->inputLength;)
     {
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             goto done;
+        }
+
+        // check early for end of object
+        if (ctx->input[*idx] == '}')
+        {
+            (*idx)++;
+
+            return consumeWhitespaces(ctx);
         }
 
         {
             JSONString *key = newJSONStringFromArray(node->keys);
 
-            error = parseKeyValuePair(key, &node->values[keyValuePairIdx], ctx);
-            if (error != ERR_NOERROR)
+            if ((error = parseKeyValuePair(key, &node->values[keyValuePairIdx], ctx, parsedSomething)) != ERR_NOERROR)
             {
                 goto done;
             }
+
+            if (parsedSomething && *parsedSomething)
+            {
+                node->length++;
+            }
         }
 
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             goto done;
         }
@@ -601,8 +621,7 @@ JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
             {
                 (*idx)++; // eat the token
 
-                error = consumeWhitespaces(ctx);
-                goto done;
+                return consumeWhitespaces(ctx);
             }
 
             ch = ctx->input[*idx];
@@ -611,23 +630,16 @@ JSONError parseObjectNode(JSONNode *node, parseContext *ctx)
                 (*idx)++;
 
                 keyValuePairIdx++;
-
-                // error = consumeWhitespaces(ctx);
-                // if (error != ERR_NOERROR)
-                // {
-                //     return error;
-                // }
             }
         }
     }
 
 done:
-    node->length = keyValuePairIdx + 1;
 
     return error;
 }
 
-JSONError parseArrayNode(JSONNode *node, parseContext *ctx)
+JSONError parseArrayNode(JSONNode *node, parseContext *ctx, bool *parsedSomething)
 {
     JSONError error = ERR_NOERROR;
 
@@ -640,22 +652,24 @@ JSONError parseArrayNode(JSONNode *node, parseContext *ctx)
 
     for (; *idx < ctx->inputLength;)
     {
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             return error;
         }
 
         JSONNode *element = &node->values[elementIndex];
 
-        error = parseValue(element, ctx);
-        if (error != ERR_NOERROR)
+        if ((error = parseValue(element, ctx, parsedSomething)) != ERR_NOERROR)
         {
             return error;
         }
 
-        error = consumeWhitespaces(ctx);
-        if (error != ERR_NOERROR)
+        if (parsedSomething && *parsedSomething)
+        {
+            node->length++;
+        }
+
+        if ((error = consumeWhitespaces(ctx)) != ERR_NOERROR)
         {
             return error;
         }
@@ -676,11 +690,6 @@ JSONError parseArrayNode(JSONNode *node, parseContext *ctx)
         }
 
         return ERR_INVALID_ARRAY_SYNTAX;
-    }
-
-    if (elementIndex > 0)
-    {
-        node->length = elementIndex + 1;
     }
 
     return error;
@@ -782,12 +791,14 @@ JSON_API JSONError JSONParse(JSONNode *tree, const char *input, size_t inputLeng
     {
         case '{':
         {
-            error = parseObjectNode(tree, &ctx);
+            bool parsedSomething = false;
+            error = parseObjectNode(tree, &ctx, &parsedSomething);
             goto done;
         }
         case '[':
         {
-            error = parseArrayNode(tree, &ctx);
+            bool parsedSomething = false;
+            error = parseArrayNode(tree, &ctx, &parsedSomething);
             goto done;
         }
         default:
