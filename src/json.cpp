@@ -678,7 +678,10 @@ JSONError parseArrayNode(JSONNode *node, parseContext *ctx)
         return ERR_INVALID_ARRAY_SYNTAX;
     }
 
-    node->length = elementIndex + 1;
+    if (elementIndex > 0)
+    {
+        node->length = elementIndex + 1;
+    }
 
     return error;
 }
